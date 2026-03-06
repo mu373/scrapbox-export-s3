@@ -10,7 +10,7 @@ EventBridge (daily cron) → Lambda → Scrapbox API → S3
 
 Each project is exported to:
 - `s3://{bucket}/{prefix}/{project}/latest.json` — always current, for consumers
-- `s3://{bucket}/{prefix}/{project}/{date}.json` — daily snapshot for history
+- `s3://{bucket}/scrapbox-exports/snapshots/{project}/{date}.json` — daily snapshot for history (auto-expires after 5 days via S3 lifecycle rule)
 
 Consumer repos read from S3 via GitHub Actions OIDC (no long-lived AWS keys).
 
@@ -97,6 +97,31 @@ steps:
       aws-region: ap-northeast-1
 
   - run: aws s3 cp s3://<BUCKET>/<PREFIX>/<PROJECT>/latest.json .
+```
+
+## S3 lifecycle
+
+Daily snapshots under `scrapbox-exports/snapshots/` are automatically deleted after 5 days via an S3 lifecycle rule (`ExpireScrapboxSnapshots`). This is applied directly on the bucket, not managed by CloudFormation.
+
+To view the current rule:
+
+```bash
+aws s3api get-bucket-lifecycle-configuration --bucket <BUCKET>
+```
+
+To update:
+
+```bash
+aws s3api put-bucket-lifecycle-configuration \
+  --bucket <BUCKET> \
+  --lifecycle-configuration '{
+    "Rules": [{
+      "ID": "ExpireScrapboxSnapshots",
+      "Filter": {"Prefix": "scrapbox-exports/snapshots/"},
+      "Status": "Enabled",
+      "Expiration": {"Days": 5}
+    }]
+  }'
 ```
 
 ## Manual invocation
