@@ -85,21 +85,21 @@ export async function handler(): Promise<void> {
   const sid = await getSid();
   const date = new Date().toISOString().slice(0, 10);
 
-  const results = await Promise.allSettled(
-    PROJECT_NAMES.map(async (projectName) => {
+  const failures: { project: string; error: unknown }[] = [];
+  for (const projectName of PROJECT_NAMES) {
+    try {
       console.log(`Exporting ${projectName}...`);
       const data = await exportProject(projectName, sid);
       await uploadToS3(projectName, data, date);
       console.log(`Exported ${projectName} to s3://${BUCKET_NAME}/${S3_PREFIX}/${projectName}/`);
-    })
-  );
+    } catch (error) {
+      console.error(`Failed to export ${projectName}:`, error);
+      failures.push({ project: projectName, error });
+    }
+  }
 
-  const failures = results.filter(
-    (r): r is PromiseRejectedResult => r.status === "rejected"
-  );
   if (failures.length > 0) {
-    console.error("Some exports failed:", failures.map((f) => f.reason));
-    throw new Error(`${failures.length}/${PROJECT_NAMES.length} exports failed`);
+    throw new Error(`${failures.length}/${PROJECT_NAMES.length} exports failed: ${failures.map((f) => f.project).join(", ")}`);
   }
 
   console.log(`All ${PROJECT_NAMES.length} projects exported successfully`);
