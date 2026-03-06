@@ -18,7 +18,7 @@ Parameters:
     Description: SSM parameter name for Scrapbox SID
   GitHubOrgOrUser:
     Type: String
-    Description: GitHub org/user for OIDC reader role
+    Description: GitHub org/user for OIDC reader role (repos are explicitly listed in ScrapboxReaderRole)
   GitHubOidcProviderArn:
     Type: String
     Description: ARN of existing GitHub OIDC provider
@@ -89,7 +89,9 @@ Resources:
             Action: sts:AssumeRoleWithWebIdentity
             Condition:
               StringLike:
-                "token.actions.githubusercontent.com:sub": !Sub "repo:${GitHubOrgOrUser}/*:*"
+                "token.actions.githubusercontent.com:sub":
+                  - !Sub "repo:${GitHubOrgOrUser}/scrapbox-duplicator:*"
+                  - !Sub "repo:${GitHubOrgOrUser}/scrapbox-sitemap:*"
               StringEquals:
                 "token.actions.githubusercontent.com:aud": sts.amazonaws.com
       Policies:
