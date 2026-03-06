@@ -1,0 +1,16 @@
+# Fill in your values
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "scrapbox-export-s3"
+resolve_s3 = true
+capabilities = "CAPABILITY_NAMED_IAM"
+region = "ap-northeast-1"
+parameter_overrides = [
+  "BucketName=YOUR_BUCKET",
+  "S3Prefix=scrapbox-exports/projects",
+  "ProjectNames=project1,project2",
+  "SidParameterName=/scrapbox-export/sid",
+  "GitHubOrgOrUser=YOUR_GITHUB_USER",
+  "GitHubOidcProviderArn=arn:aws:iam::YOUR_ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com",
+]

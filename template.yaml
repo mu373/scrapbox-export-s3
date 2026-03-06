@@ -1,0 +1,114 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+
+Parameters:
+  BucketName:
+    Type: String
+    Description: Existing S3 bucket name
+  S3Prefix:
+    Type: String
+    Default: scrapbox-exports/projects
+    Description: S3 key prefix for exports
+  ProjectNames:
+    Type: String
+    Description: Comma-separated Scrapbox project names
+  SidParameterName:
+    Type: String
+    Default: /scrapbox-export/sid
+    Description: SSM parameter name for Scrapbox SID
+  GitHubOrgOrUser:
+    Type: String
+    Description: GitHub org/user for OIDC reader role
+  GitHubOidcProviderArn:
+    Type: String
+    Description: ARN of existing GitHub OIDC provider
+  ReaderRoleName:
+    Type: String
+    Default: scrapbox-s3-reader
+    Description: IAM role name for S3 reader (used by consumer repos)
+
+Globals:
+  Function:
+    Timeout: 300
+    Runtime: nodejs22.x
+    MemorySize: 512
+
+Resources:
+  ExportFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda/
+      Handler: handler.handler
+      Environment:
+        Variables:
+          BUCKET_NAME: !Ref BucketName
+          S3_PREFIX: !Ref S3Prefix
+          PROJECT_NAMES: !Ref ProjectNames
+          SID_PARAMETER_NAME: !Ref SidParameterName
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: s3:PutObject
+              Resource: !Sub "arn:aws:s3:::${BucketName}/${S3Prefix}/*"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ssm:GetParameter
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SidParameterName}"
+        - Statement:
+            - Effect: Allow
+              Action: kms:Decrypt
+              Resource: "*"
+              Condition:
+                StringEquals:
+                  "kms:ViaService": !Sub "ssm.${AWS::Region}.amazonaws.com"
+      Events:
+        DailySchedule:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 10 * * ? *)
+            Description: Daily export at 19:00 JST
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: es2022
+        EntryPoints:
+          - handler.ts
+
+  ScrapboxReaderRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref ReaderRoleName
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Ref GitHubOidcProviderArn
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringLike:
+                "token.actions.githubusercontent.com:sub": !Sub "repo:${GitHubOrgOrUser}/*:*"
+              StringEquals:
+                "token.actions.githubusercontent.com:aud": sts.amazonaws.com
+      Policies:
+        - PolicyName: ReadScrapboxExports
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub "arn:aws:s3:::${BucketName}/${S3Prefix}/*"
+              - Effect: Allow
+                Action: s3:ListBucket
+                Resource: !Sub "arn:aws:s3:::${BucketName}"
+                Condition:
+                  StringLike:
+                    "s3:prefix": !Sub "${S3Prefix}/*"
+
+Outputs:
+  ExportFunctionArn:
+    Value: !GetAtt ExportFunction.Arn
+  ReaderRoleArn:
+    Value: !GetAtt ScrapboxReaderRole.Arn
