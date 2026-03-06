@@ -69,7 +69,7 @@ async function uploadToS3(
     s3.send(
       new PutObjectCommand({
         Bucket: BUCKET_NAME,
-        Key: `${S3_PREFIX}/${projectName}/${date}.json`,
+        Key: `scrapbox-exports/snapshots/${projectName}/${date}.json`,
         Body: json,
         ContentType: "application/json",
       })

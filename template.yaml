@@ -49,7 +49,9 @@ Resources:
         - Statement:
             - Effect: Allow
               Action: s3:PutObject
-              Resource: !Sub "arn:aws:s3:::${BucketName}/${S3Prefix}/*"
+              Resource:
+                - !Sub "arn:aws:s3:::${BucketName}/${S3Prefix}/*"
+                - !Sub "arn:aws:s3:::${BucketName}/scrapbox-exports/snapshots/*"
         - Statement:
             - Effect: Allow
               Action:
