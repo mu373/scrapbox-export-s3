@@ -8,6 +8,8 @@ Daily export of Scrapbox projects to S3 via AWS Lambda. Centralizes Scrapbox API
 EventBridge (daily cron) → Lambda → Scrapbox API → S3
 ```
 
+The sync runs daily at 10:00 UTC (19:00 JST, 5:00 AM EST, or 6:00 AM EDT).
+
 Each project is exported to:
 - `s3://{bucket}/{prefix}/{project}/latest.json` — always current, for consumers
 - `s3://{bucket}/scrapbox-exports/snapshots/{project}/{date}.json` — daily snapshot for history (auto-expires after 5 days via S3 lifecycle rule)
